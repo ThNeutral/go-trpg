@@ -24,39 +24,44 @@ type PerpendicularRenderer struct {
 	Field        *field.Field
 }
 
-func (renderer *PerpendicularRenderer) DrawField(screen *ebiten.Image) {
-	offset := utils.Vector2D{
-		X: renderer.ScreenCenter.X - renderer.ScreenSize.X/2,
-		Y: renderer.ScreenCenter.Y - renderer.ScreenSize.Y/2,
-	}
-	for _, tile := range renderer.Field.Arr {
+func (renderer *PerpendicularRenderer) DrawField(screen *ebiten.Image, index utils.Vector2D) {
+	offset := renderer.ScreenCenter.Subtract(renderer.ScreenSize.Scale(0.5))
+	pos := offset.Add(index.Multiply(renderer.TileSize))
+	borderPos := pos.Scale(renderer.Zoom)
+	borderSize := renderer.TileSize.Add(renderer.BorderSize).Scale(renderer.Zoom)
+	innerPos := pos.Add(renderer.BorderSize.Scale(0.5)).Scale(renderer.Zoom)
+	innerSize := renderer.TileSize.Scale(renderer.Zoom)
+	vector.DrawFilledRect(screen, float32(borderPos.X), float32(borderPos.Y), float32(borderSize.X), float32(borderSize.Y), renderer.Field.GetBorderColor(index), false)
+	vector.DrawFilledRect(screen, float32(innerPos.X), float32(innerPos.Y), float32(innerSize.X), float32(innerSize.Y), renderer.Field.GetInnerColor(index), false)
+
+}
+
+func (renderer *PerpendicularRenderer) DrawAllFields(screen *ebiten.Image) {
+	offset := renderer.ScreenCenter.Subtract(renderer.ScreenSize.Scale(0.5))
+	for _, tile := range renderer.Field.Tiles {
 		x, y := utils.OneDimToTwoDim(tile.Pos, renderer.Field.XSize)
-		pos := utils.Vector2D{
-			X: offset.X + float32(x)*renderer.TileSize.X,
-			Y: offset.Y + float32(y)*renderer.TileSize.Y,
-		}
-		vector.DrawFilledRect(screen, pos.X*renderer.Zoom, pos.Y*renderer.Zoom, (renderer.TileSize.X+renderer.BorderSize.X)*renderer.Zoom, (renderer.TileSize.Y+renderer.BorderSize.Y)*renderer.Zoom, tile.BorderColor, false)
-		vector.DrawFilledRect(screen, (pos.X+renderer.BorderSize.X/2)*renderer.Zoom, (pos.Y+renderer.BorderSize.Y/2)*renderer.Zoom, renderer.TileSize.X*renderer.Zoom, renderer.TileSize.Y*renderer.Zoom, tile.InnerColor, false)
+		index := utils.Vector2D{X: x, Y: y}
+		pos := offset.Add(index.Multiply(renderer.TileSize))
+		borderPos := pos.Scale(renderer.Zoom)
+		borderSize := renderer.TileSize.Add(renderer.BorderSize).Scale(renderer.Zoom)
+		innerPos := pos.Add(renderer.BorderSize.Scale(0.5)).Scale(renderer.Zoom)
+		innerSize := renderer.TileSize.Scale(renderer.Zoom)
+		vector.DrawFilledRect(screen, float32(borderPos.X), float32(borderPos.Y), float32(borderSize.X), float32(borderSize.Y), renderer.Field.GetBorderColor(index), false)
+		vector.DrawFilledRect(screen, float32(innerPos.X), float32(innerPos.Y), float32(innerSize.X), float32(innerSize.Y), renderer.Field.GetInnerColor(index), false)
 	}
 }
 
-func (renderer *PerpendicularRenderer) ScreenToFieldIndex(xScreen, yScreen int) (int, int) {
-	offset := utils.Vector2D{
-		X: renderer.ScreenCenter.X - renderer.ScreenSize.X/(2),
-		Y: renderer.ScreenCenter.Y - renderer.ScreenSize.Y/(2),
+func (renderer *PerpendicularRenderer) ScreenToFieldIndex(screen utils.Vector2D) utils.Vector2D {
+	offset := renderer.ScreenCenter.Subtract(renderer.ScreenSize.Scale(0.5))
+	distance := screen.Scale(1 / renderer.Zoom).Subtract(offset)
+	index := distance.Divide(renderer.TileSize)
+	if index.X < 0 || index.X >= renderer.Field.XSize {
+		index.X = -1
 	}
-	xDistance := (float32(xScreen) / renderer.Zoom) - offset.X
-	yDistance := (float32(yScreen) / renderer.Zoom) - offset.Y
-	xIndex := xDistance / renderer.TileSize.X
-	yIndex := yDistance / renderer.TileSize.Y
-	if xIndex < 0 || xIndex >= float32(renderer.Field.XSize) {
-		xIndex = -1
+	if index.Y < 0 || index.Y >= renderer.Field.YSize {
+		index.Y = -1
 	}
-	if yIndex < 0 || yIndex >= float32(renderer.Field.YSize) {
-		yIndex = -1
-	}
-
-	return int(xIndex), int(yIndex)
+	return index
 }
 
 // Doesn't work
@@ -95,12 +100,12 @@ func GetRenderer(tileSize utils.Vector2D, borderSize utils.Vector2D, field *fiel
 		TileSize:   tileSize,
 		Field:      field,
 		ScreenCenter: utils.Vector2D{
-			X: float32(screenWidth / 2),
-			Y: float32(screenHeight / 2),
+			X: screenWidth / 2,
+			Y: screenHeight / 2,
 		},
 		ScreenSize: utils.Vector2D{
-			X: float32(screenWidth),
-			Y: float32(screenHeight),
+			X: screenWidth,
+			Y: screenHeight,
 		},
 	}
 }

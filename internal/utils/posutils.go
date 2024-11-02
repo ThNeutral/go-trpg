@@ -1,5 +1,7 @@
 package utils
 
+import "fmt"
+
 func TwoDimToOneDim(x, y, xMax int) int {
 	return y*xMax + x
 }
@@ -10,7 +12,45 @@ func OneDimToTwoDim(index, xMax int) (int, int) {
 	return x, y
 }
 
-type Vector2D struct {
-	X float32
-	Y float32
+func GetDirection(dir int) Vector2D {
+	switch dir {
+	case DIRECTION_TOP:
+		{
+			return Vector2D{
+				X: 0,
+				Y: -1,
+			}
+		}
+	case DIRECTION_RIGHT:
+		{
+			return Vector2D{
+				X: 1,
+				Y: 0,
+			}
+		}
+	case DIRECTION_BOTTOM:
+		{
+			return Vector2D{
+				X: 0,
+				Y: 1,
+			}
+		}
+	case DIRECTION_LEFT:
+		{
+			return Vector2D{
+				X: -1,
+				Y: 0,
+			}
+		}
+	default:
+		{
+			fmt.Printf("Incorrect direction %v", dir)
+			panic("")
+		}
+	}
+}
+
+// Top, Right, Bottom, Left
+func GetAllDirections() [4]Vector2D {
+	return [4]Vector2D{GetDirection(DIRECTION_TOP), GetDirection(DIRECTION_RIGHT), GetDirection(DIRECTION_BOTTOM), GetDirection(DIRECTION_LEFT)}
 }

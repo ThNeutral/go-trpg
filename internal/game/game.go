@@ -1,7 +1,7 @@
 package game
 
 import (
-	"image/color"
+	"slices"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
@@ -17,15 +17,27 @@ const (
 	MIN_ZOOM = 1 / ZOOM_RATE / ZOOM_RATE / ZOOM_RATE
 )
 
+const (
+	GAME_STATE_PLAYING = iota
+)
+
+const (
+	SELECTION_STATE_NONE = iota
+	SELECTION_STATE_SELECTED
+	SELECTION_STATE_PATH
+)
+
 func GetNewGame(field *field.Field, renderer *renderer.PerpendicularRenderer) *Game {
 	x, y := ebiten.CursorPosition()
 	return &Game{
 		Field:    field,
 		Renderer: renderer,
 		OldCursorPosition: utils.Vector2D{
-			X: float32(x),
-			Y: float32(y),
+			X: x,
+			Y: y,
 		},
+		GameState:      GAME_STATE_PLAYING,
+		SelectionState: SELECTION_STATE_NONE,
 	}
 }
 
@@ -33,39 +45,75 @@ type Game struct {
 	Field             *field.Field
 	Renderer          *renderer.PerpendicularRenderer
 	OldCursorPosition utils.Vector2D
+	SelectionCenter   utils.Vector2D
+	SelectedTiles     []utils.Vector2D
+	GameState         int
+	SelectionState    int
 }
 
-func (g *Game) Update() error {
+func (game *Game) Update() error {
+	// Common data before
 	xCursor, yCursor := ebiten.CursorPosition()
 	_, yWheel := ebiten.Wheel()
-	if yWheel > 0 && g.Renderer.Zoom < MAX_ZOOM {
-		g.Renderer.Zoom *= ZOOM_RATE
-	} else if yWheel < 0 && g.Renderer.Zoom > MIN_ZOOM {
-		g.Renderer.Zoom /= ZOOM_RATE
+
+	// Zoom
+	if yWheel > 0 && game.Renderer.Zoom < MAX_ZOOM {
+		game.Renderer.Zoom *= ZOOM_RATE
+	} else if yWheel < 0 && game.Renderer.Zoom > MIN_ZOOM {
+		game.Renderer.Zoom /= ZOOM_RATE
 	}
+
+	// Drag
 	if ebiten.IsMouseButtonPressed(ebiten.MouseButton1) {
-		g.Renderer.ScreenCenter.X += (float32(xCursor) - g.OldCursorPosition.X) / g.Renderer.Zoom
-		g.Renderer.ScreenCenter.Y += (float32(yCursor) - g.OldCursorPosition.Y) / g.Renderer.Zoom
+		game.Renderer.ScreenCenter.X += int(float32(xCursor-game.OldCursorPosition.X) / game.Renderer.Zoom)
+		game.Renderer.ScreenCenter.Y += int(float32(yCursor-game.OldCursorPosition.Y) / game.Renderer.Zoom)
 	}
+
+	// Selection
 	if inpututil.IsMouseButtonJustPressed(ebiten.MouseButton0) {
-		xIndex, yIndex := g.Renderer.ScreenToFieldIndex(xCursor, yCursor)
-		if xIndex != -1 && yIndex != -1 {
-			g.Field.ChangeColor(xIndex, yIndex, color.RGBA{R: 0x49, G: 0xE0, B: 0xE4, A: 0xFF})
+		selectedTile := game.Renderer.ScreenToFieldIndex(utils.Vector2D{X: xCursor, Y: yCursor})
+		if !selectedTile.IsAnyNegative() {
+			switch game.SelectionState {
+			case SELECTION_STATE_NONE:
+				{
+					game.SelectionState = SELECTION_STATE_SELECTED
+					game.SelectedTiles = game.Field.CreateAllPaths(selectedTile, 5)
+					game.SelectionCenter = selectedTile
+				}
+			case SELECTION_STATE_SELECTED:
+				{
+					game.Field.DeleteAllPaths(game.SelectionCenter, 5)
+					if selectedTile.Equals(game.SelectionCenter) {
+						game.SelectionState = SELECTION_STATE_NONE
+					} else if slices.Contains(game.SelectedTiles, selectedTile) {
+						game.SelectionState = SELECTION_STATE_PATH
+						game.Field.CreateSinglePath(game.SelectionCenter, selectedTile, game.SelectedTiles)
+					} else {
+						game.SelectionState = SELECTION_STATE_NONE
+					}
+				}
+			case SELECTION_STATE_PATH:
+				{
+					game.SelectionState = SELECTION_STATE_NONE
+					game.Field.DeleteAllPaths(game.SelectionCenter, 5)
+				}
+			}
 		}
 	}
-	g.OldCursorPosition = utils.Vector2D{
-		X: float32(xCursor),
-		Y: float32(yCursor),
+
+	// Common data after
+	game.OldCursorPosition = utils.Vector2D{
+		X: xCursor,
+		Y: yCursor,
 	}
 	return nil
 }
 
-func (g *Game) Draw(screen *ebiten.Image) {
-	// screen.Fill(co]lor.RGBA{R: 255, A: 255})
+func (game *Game) Draw(screen *ebiten.Image) {
 	screen.Clear()
-	g.Renderer.DrawField(screen)
+	game.Renderer.DrawAllFields(screen)
 }
 
-func (g *Game) Layout(outsideWidth, outsideHeight int) (int, int) {
+func (game *Game) Layout(outsideWidth, outsideHeight int) (int, int) {
 	return outsideWidth, outsideHeight
 }
