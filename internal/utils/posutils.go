@@ -1,6 +1,9 @@
 package utils
 
-import "fmt"
+import (
+	"fmt"
+	"os"
+)
 
 func TwoDimToOneDim(x, y, xMax int) int {
 	return y*xMax + x
@@ -16,36 +19,25 @@ func GetDirection(dir int) Vector2D {
 	switch dir {
 	case DIRECTION_TOP:
 		{
-			return Vector2D{
-				X: 0,
-				Y: -1,
-			}
+			return Vector2D{X: 0, Y: -1}
 		}
 	case DIRECTION_RIGHT:
 		{
-			return Vector2D{
-				X: 1,
-				Y: 0,
-			}
+			return Vector2D{X: 1, Y: 0}
 		}
 	case DIRECTION_BOTTOM:
 		{
-			return Vector2D{
-				X: 0,
-				Y: 1,
-			}
+			return Vector2D{X: 0, Y: 1}
 		}
 	case DIRECTION_LEFT:
 		{
-			return Vector2D{
-				X: -1,
-				Y: 0,
-			}
+			return Vector2D{X: -1, Y: 0}
 		}
 	default:
 		{
-			fmt.Printf("Incorrect direction %v", dir)
-			panic("")
+			fmt.Printf("Incorrect direction %v\n", dir)
+			os.Exit(1)
+			return Vector2D{}
 		}
 	}
 }

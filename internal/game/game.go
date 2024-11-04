@@ -1,10 +1,12 @@
 package game
 
 import (
+	"image/color"
 	"slices"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
+	"github.com/thneutral/go-trpg-game/internal/character"
 	"github.com/thneutral/go-trpg-game/internal/field"
 	"github.com/thneutral/go-trpg-game/internal/renderer"
 	"github.com/thneutral/go-trpg-game/internal/utils"
@@ -47,6 +49,7 @@ type Game struct {
 	OldCursorPosition utils.Vector2D
 	SelectionCenter   utils.Vector2D
 	SelectedTiles     []utils.Vector2D
+	SelectedCharacter *character.Character
 	GameState         int
 	SelectionState    int
 }
@@ -76,26 +79,25 @@ func (game *Game) Update() error {
 			switch game.SelectionState {
 			case SELECTION_STATE_NONE:
 				{
-					game.SelectionState = SELECTION_STATE_SELECTED
-					game.SelectedTiles = game.Field.CreateAllPaths(selectedTile, 5)
-					game.SelectionCenter = selectedTile
+					if char := game.Field.GetCharacter(selectedTile); game.Field.GetColor(selectedTile) != color.Black && char != nil {
+						game.SelectedCharacter = char
+						game.SelectionState = SELECTION_STATE_SELECTED
+						game.SelectedTiles = game.Field.CreateAllPaths(selectedTile, char.Mobility)
+						game.SelectionCenter = selectedTile
+					}
 				}
 			case SELECTION_STATE_SELECTED:
 				{
-					game.Field.DeleteAllPaths(game.SelectionCenter, 5)
+					game.Field.DeleteAllPaths(game.SelectionCenter, game.SelectedCharacter.Mobility)
 					if selectedTile.Equals(game.SelectionCenter) {
 						game.SelectionState = SELECTION_STATE_NONE
 					} else if slices.Contains(game.SelectedTiles, selectedTile) {
-						game.SelectionState = SELECTION_STATE_PATH
-						game.Field.CreateSinglePath(game.SelectionCenter, selectedTile, game.SelectedTiles)
+						game.SelectionState = SELECTION_STATE_NONE
+						game.Field.SetCharacter(selectedTile, game.Field.GetCharacter(game.SelectionCenter))
+						game.Field.SetCharacter(game.SelectionCenter, nil)
 					} else {
 						game.SelectionState = SELECTION_STATE_NONE
 					}
-				}
-			case SELECTION_STATE_PATH:
-				{
-					game.SelectionState = SELECTION_STATE_NONE
-					game.Field.DeleteAllPaths(game.SelectionCenter, 5)
 				}
 			}
 		}
